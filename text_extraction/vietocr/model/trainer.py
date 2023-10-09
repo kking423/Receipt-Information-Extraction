@@ -30,7 +30,7 @@ class Trainer():
 
         self.config = config
         self.model, self.vocab = build_model(config)
-        
+
         self.device = config['device']
         self.num_iters = config['trainer']['iters']
         self.beamsearch = config['predictor']['beamsearch']
@@ -43,16 +43,14 @@ class Trainer():
         self.batch_size = config['trainer']['batch_size']
         self.print_every = config['trainer']['print_every']
         self.valid_every = config['trainer']['valid_every']
-        
+
         self.image_aug = config['aug']['image_aug']
         self.masked_language_model = config['aug']['masked_language_model']
 
         self.checkpoint = config['trainer']['checkpoint']
         self.export_weights = config['trainer']['export']
         self.metrics = config['trainer']['metrics']
-        logger = config['trainer']['log']
-    
-        if logger:
+        if logger := config['trainer']['log']:
             self.logger = Logger(logger) 
 
         if pretrained:
@@ -60,7 +58,7 @@ class Trainer():
             self.load_weights(weight_file)
 
         self.iter = 0
-        
+
         self.optimizer = AdamW(self.model.parameters(), betas=(0.9, 0.98), eps=1e-09)
         self.scheduler = OneCycleLR(self.optimizer, total_steps=self.num_iters, **config['optimizer'])
 #        self.optimizer = ScheduledOptim(
@@ -70,28 +68,34 @@ class Trainer():
 #            **config['optimizer'])
 
         self.criterion = LabelSmoothingLoss(len(self.vocab), padding_idx=self.vocab.pad, smoothing=0.1)
-        
-        transforms = None
-        if self.image_aug:
-            transforms =  augmentor
 
-        self.train_gen = self.data_gen('train_{}'.format(self.dataset_name), 
-                self.data_root, self.train_annotation, self.masked_language_model, transform=transforms)
+        transforms = augmentor if self.image_aug else None
+        self.train_gen = self.data_gen(
+            f'train_{self.dataset_name}',
+            self.data_root,
+            self.train_annotation,
+            self.masked_language_model,
+            transform=transforms,
+        )
         if self.valid_annotation:
-            self.valid_gen = self.data_gen('valid_{}'.format(self.dataset_name), 
-                    self.data_root, self.valid_annotation, masked_language_model=False)
+            self.valid_gen = self.data_gen(
+                f'valid_{self.dataset_name}',
+                self.data_root,
+                self.valid_annotation,
+                masked_language_model=False,
+            )
 
         self.train_losses = []
         
     def train(self):
         total_loss = 0
-        
+
         total_loader_time = 0
         total_gpu_time = 0
         best_acc = 0
 
         data_iter = iter(self.train_gen)
-        for i in range(self.num_iters):
+        for _ in range(self.num_iters):
             self.iter += 1
 
             start = time.time()
@@ -139,27 +143,27 @@ class Trainer():
         self.model.eval()
 
         total_loss = []
-        
+
         with torch.no_grad():
-            for step, batch in enumerate(self.valid_gen):
+            for batch in self.valid_gen:
                 batch = self.batch_to_device(batch)
                 img, tgt_input, tgt_output, tgt_padding_mask = batch['img'], batch['tgt_input'], batch['tgt_output'], batch['tgt_padding_mask']
 
                 outputs = self.model(img, tgt_input, tgt_padding_mask)
 #                loss = self.criterion(rearrange(outputs, 'b t v -> (b t) v'), rearrange(tgt_output, 'b o -> (b o)'))
-               
+
                 outputs = outputs.flatten(0,1)
                 tgt_output = tgt_output.flatten()
                 loss = self.criterion(outputs, tgt_output)
 
                 total_loss.append(loss.item())
-                
+
                 del outputs
                 del loss
 
         total_loss = np.mean(total_loss)
         self.model.train()
-        
+
         return total_loss
     
     def predict(self, sample=None):
@@ -203,11 +207,7 @@ class Trainer():
         pred_sents, actual_sents, img_files, probs = self.predict(sample)
 
         if errorcase:
-            wrongs = []
-            for i in range(len(img_files)):
-                if pred_sents[i]!= actual_sents[i]:
-                    wrongs.append(i)
-
+            wrongs = [i for i in range(len(img_files)) if pred_sents[i]!= actual_sents[i]]
             pred_sents = [pred_sents[i] for i in wrongs]
             actual_sents = [actual_sents[i] for i in wrongs]
             img_files = [img_files[i] for i in wrongs]
@@ -240,12 +240,12 @@ class Trainer():
             for i in range(self.batch_size):
                 img = batch['img'][i].numpy().transpose(1,2,0)
                 sent = self.vocab.decode(batch['tgt_input'].T[i].tolist())
-                
+
                 plt.figure()
-                plt.title('sent: {}'.format(sent), loc='center', fontname=fontname)
+                plt.title(f'sent: {sent}', loc='center', fontname=fontname)
                 plt.imshow(img)
                 plt.axis('off')
-                
+
                 n += 1
                 if n >= sample:
                     plt.show()
@@ -279,9 +279,11 @@ class Trainer():
 
         for name, param in self.model.named_parameters():
             if name not in state_dict:
-                print('{} not found'.format(name))
+                print(f'{name} not found')
             elif state_dict[name].shape != param.shape:
-                print('{} missmatching shape, required {} but found {}'.format(name, param.shape, state_dict[name].shape))
+                print(
+                    f'{name} missmatching shape, required {param.shape} but found {state_dict[name].shape}'
+                )
                 del state_dict[name]
 
         self.model.load_state_dict(state_dict, strict=False)
@@ -317,47 +319,47 @@ class Trainer():
         sampler = ClusterRandomSampler(dataset, self.batch_size, True)
         collate_fn = Collator(masked_language_model)
 
-        gen = DataLoader(
-                dataset,
-                batch_size=self.batch_size, 
-                sampler=sampler,
-                collate_fn = collate_fn,
-                shuffle=False,
-                drop_last=False,
-                **self.config['dataloader'])
-       
-        return gen
+        return DataLoader(
+            dataset,
+            batch_size=self.batch_size,
+            sampler=sampler,
+            collate_fn=collate_fn,
+            shuffle=False,
+            drop_last=False,
+            **self.config['dataloader']
+        )
 
     def data_gen_v1(self, lmdb_path, data_root, annotation):
-        data_gen = DataGen(data_root, annotation, self.vocab, 'cpu', 
-                image_height = self.config['dataset']['image_height'],        
-                image_min_width = self.config['dataset']['image_min_width'],
-                image_max_width = self.config['dataset']['image_max_width'])
-
-        return data_gen
+        return DataGen(
+            data_root,
+            annotation,
+            self.vocab,
+            'cpu',
+            image_height=self.config['dataset']['image_height'],
+            image_min_width=self.config['dataset']['image_min_width'],
+            image_max_width=self.config['dataset']['image_max_width'],
+        )
 
     def step(self, batch):
         self.model.train()
 
         batch = self.batch_to_device(batch)
         img, tgt_input, tgt_output, tgt_padding_mask = batch['img'], batch['tgt_input'], batch['tgt_output'], batch['tgt_padding_mask']    
-        
+
         outputs = self.model(img, tgt_input, tgt_key_padding_mask=tgt_padding_mask)
 #        loss = self.criterion(rearrange(outputs, 'b t v -> (b t) v'), rearrange(tgt_output, 'b o -> (b o)'))
         outputs = outputs.view(-1, outputs.size(2))#flatten(0, 1)
         tgt_output = tgt_output.view(-1)#flatten()
-        
+
         loss = self.criterion(outputs, tgt_output)
 
         self.optimizer.zero_grad()
 
         loss.backward()
-        
+
         torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1) 
 
         self.optimizer.step()
         self.scheduler.step()
 
-        loss_item = loss.item()
-
-        return loss_item
+        return loss.item()

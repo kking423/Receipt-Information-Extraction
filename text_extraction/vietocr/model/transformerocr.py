@@ -36,9 +36,7 @@ class VietOCR(nn.Module):
 
         if self.seq_modeling == 'transformer':
             outputs = self.transformer(src, tgt_input, tgt_key_padding_mask=tgt_key_padding_mask)
-        elif self.seq_modeling == 'seq2seq':
-            outputs = self.transformer(src, tgt_input)
-        elif self.seq_modeling == 'convseq2seq': 
+        elif self.seq_modeling in ['seq2seq', 'convseq2seq']:
             outputs = self.transformer(src, tgt_input)
         return outputs
 

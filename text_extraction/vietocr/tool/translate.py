@@ -24,9 +24,7 @@ def batch_translate_beam_search(img, model, beam_size=4, candidates=1, max_seq_l
             sent = beamsearch(memory, model, device, beam_size, candidates, max_seq_length, sos_token, eos_token)
             sents.append(sent)
 
-    sents = np.asarray(sents)
-
-    return sents
+    return np.asarray(sents)
    
 def translate_beam_search(img, model, beam_size=4, candidates=1, max_seq_length=128, sos_token=1, eos_token=2):
     # img: 1xCxHxW
@@ -51,23 +49,23 @@ def beamsearch(memory, model, device, beam_size=4, candidates=1, max_seq_length=
         memory = model.transformer.expand_memory(memory, beam_size)
 
         for _ in range(max_seq_length):
-            
+
             tgt_inp = beam.get_current_state().transpose(0,1).to(device)  # TxN
             decoder_outputs, memory = model.transformer.forward_decoder(tgt_inp, memory)
 
             log_prob = log_softmax(decoder_outputs[:,-1, :].squeeze(0), dim=-1)
             beam.advance(log_prob.cpu())
-            
+
             if beam.done():
                 break
-                
+
         scores, ks = beam.sort_finished(minimum=1)
 
         hypothesises = []
-        for i, (times, k) in enumerate(ks[:candidates]):
+        for times, k in ks[:candidates]:
             hypothesis = beam.get_hypothesis(times, k)
             hypothesises.append(hypothesis)
-    
+
     return [1] + [int(i) for i in hypothesises[0][:-1]]
 
 def translate(img, model, max_seq_length=128, sos_token=1, eos_token=2):
@@ -155,8 +153,7 @@ def process_image(image, image_height, image_min_width, image_max_width):
 def process_input(image, image_height, image_min_width, image_max_width):
     img = process_image(image, image_height, image_min_width, image_max_width)
     img = img[np.newaxis, ...]
-    img = torch.FloatTensor(img)
-    return img
+    return torch.FloatTensor(img)
 
 def predict(filename, config):
     img = Image.open(filename)

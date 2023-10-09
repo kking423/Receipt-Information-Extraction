@@ -88,10 +88,10 @@ class Pipeline:
 		img_data['information'] = []
 		incline = {'prev_height': 0, 'prev_line': -1, }
 		for i, box in enumerate(img_data['bboxes']):
-			x1 = int(box[0][0] if (box[0][0] < box[3][0]) else box[3][0])
-			y1 = int(box[0][1] if (box[0][1] < box[1][1]) else box[1][1])
-			x2 = int(box[2][0] if (box[2][0] > box[1][0]) else box[1][0])
-			y2 = int(box[2][1] if (box[2][1] > box[3][1]) else box[3][1])
+			x1 = int(min(box[0][0], box[3][0]))
+			y1 = int(min(box[0][1], box[1][1]))
+			x2 = int(max(box[2][0], box[1][0]))
+			y2 = int(max(box[2][1], box[3][1]))
 			arr_img = img_data['image'].copy()[y1:y2, x1:x2]  # crop image
 			try:
 				img_box = Image.fromarray(arr_img)
@@ -148,7 +148,7 @@ def main(args):
 
 	start = time()
 	if config['multiprocessing'] in [0, 1]:  # multiprocessing disable
-		print(f'Multiprocessing will not be used!')
+		print('Multiprocessing will not be used!')
 		bg_removed = [pl.remove_background(img_data) for img_data in data]
 	else:  # multiprocessing enable
 		max_cpu = int(torch.multiprocessing.cpu_count()*0.8)  # 80% for safety | max out your thread may crash your system

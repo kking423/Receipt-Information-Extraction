@@ -45,13 +45,11 @@ class Progress:
 	def __time_left(self):
 		ps = self.__per_sec()
 		sec_left = round((self.total - self.current) / ps) if ps != 0 else 0
-		time_format = datetime.timedelta(seconds=sec_left)
-		return time_format
+		return datetime.timedelta(seconds=sec_left)
 
 	def __time_total(self):
 		sec_total = round(time()-self.__begin_time)
-		time_format = datetime.timedelta(seconds=sec_total)
-		return time_format
+		return datetime.timedelta(seconds=sec_total)
 
 	def __bar(self):
 		percent = self.current / self.total
@@ -70,15 +68,14 @@ class Progress:
 
 def crop_background(image, grayscale=False):
 	"""Crop black background only"""
-	if not type(image).__module__ == np.__name__:
+	if type(image).__module__ != np.__name__:
 		img_arr = io.imread(image, True)
 	else:
 		img_arr = image
 	gray = img_arr[:,:,0] if img_arr.ndim > 2 else img_arr
 	_, thresholded = cv2.threshold(gray, 0, 255, cv2.THRESH_OTSU)
 	x, y, w, h = cv2.boundingRect(thresholded)
-	output = (gray if grayscale else image)[y:y+h, x:x+w]
-	return output
+	return (gray if grayscale else image)[y:y+h, x:x+w]
 
 
 def load_config(config_name, args=None):
@@ -106,12 +103,12 @@ def measure(func):
 
 
 def download_weight(model_name, url=False):
-	models = {
-		'rotate_180.pkl': "1laOUDHBEOtazXM20x2DCXIZ7zBH4uWWB",
-		'craft_mlt_25k.pth': "1fBUOVdtv4r6UM4rOTjaZpamcs3UIwzj_",
-		'craft_refiner_CTW1500.pth': "1QC0hXbyNX-yW69g42RR0ZB74L6jqdRDg",
-	}
 	if not url:
+		models = {
+			'rotate_180.pkl': "1laOUDHBEOtazXM20x2DCXIZ7zBH4uWWB",
+			'craft_mlt_25k.pth': "1fBUOVdtv4r6UM4rOTjaZpamcs3UIwzj_",
+			'craft_refiner_CTW1500.pth': "1QC0hXbyNX-yW69g42RR0ZB74L6jqdRDg",
+		}
 		url = f"https://drive.google.com/uc?export=download&id={models[model_name]}"
 	else:
 		url = model_name

@@ -11,10 +11,7 @@ from utils import download_weight
 
 
 def copyStateDict(state_dict):
-    if list(state_dict.keys())[0].startswith("module"):
-        start_idx = 1
-    else:
-        start_idx = 0
+    start_idx = 1 if list(state_dict.keys())[0].startswith("module") else 0
     new_state_dict = OrderedDict()
     for k, v in state_dict.items():
         name = ".".join(k.split(".")[start_idx:])
@@ -86,8 +83,8 @@ def model_setup(model, pretrained, cuda):
 def setup(device):
     net = model.CRAFT()
     refine_net = model.RefineNet()
-    cuda = True if (device == 'cuda' and torch.cuda.is_available()) else False
-    
+    cuda = bool((device == 'cuda' and torch.cuda.is_available()))
+
     net_model = download_weight('craft_mlt_25k.pth')
     refine_model = download_weight('craft_refiner_CTW1500.pth')
 

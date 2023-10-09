@@ -25,7 +25,7 @@ class Predictor():
 
     def predict(self, img, return_prob=False):
         img = process_input(img, self.config['dataset']['image_height'], 
-                self.config['dataset']['image_min_width'], self.config['dataset']['image_max_width'])        
+                self.config['dataset']['image_min_width'], self.config['dataset']['image_max_width'])
         img = img.to(self.config['device'])
 
         if self.config['predictor']['beamsearch']:
@@ -38,23 +38,20 @@ class Predictor():
             prob = prob[0]
 
         s = self.vocab.decode(s)
-        
-        if return_prob:
-            return s, prob
-        else:
-            return s
+
+        return (s, prob) if return_prob else s
 
     def predict_batch(self, imgs, return_prob=False):
         bucket = defaultdict(list)
         bucket_idx = defaultdict(list)
         bucket_pred = {}
-        
+
         sents, probs = [0]*len(imgs), [0]*len(imgs)
 
         for i, img in enumerate(imgs):
             img = process_input(img, self.config['dataset']['image_height'], 
                 self.config['dataset']['image_min_width'], self.config['dataset']['image_max_width'])        
-        
+
             bucket[img.shape[-1]].append(img)
             bucket_idx[img.shape[-1]].append(i)
 
@@ -76,9 +73,6 @@ class Predictor():
             for i, j in enumerate(idx):
                 sents[j] = sent[i]
                 probs[j] = prob[i]
-   
-        if return_prob: 
-            return sents, probs
-        else: 
-            return sents
+
+        return (sents, probs) if return_prob else sents
 

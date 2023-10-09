@@ -26,7 +26,7 @@ class BucketData(object):
 
         return len(self.data_list)
 
-    def flush_out(self):                           
+    def flush_out(self):
         """
         Shape:
             - img: (N, C, H, W) 
@@ -36,20 +36,20 @@ class BucketData(object):
         """
         # encoder part
         img = np.array(self.data_list, dtype=np.float32)
-        
+
         # decoder part
         target_weights = []
         tgt_input = []
         for label in self.label_list:
             label_len = len(label)
-            
+
             tgt = np.concatenate((
                 label,
                 np.zeros(self.max_label_len - label_len, dtype=np.int32)))
             tgt_input.append(tgt)
-            
+
             one_mask_len = label_len - 1
-            
+
             target_weights.append(np.concatenate((
                 np.ones(one_mask_len, dtype=np.float32),
                 np.zeros(self.max_label_len - one_mask_len,dtype=np.float32))))
@@ -58,23 +58,21 @@ class BucketData(object):
         tgt_input = np.array(tgt_input, dtype=np.int64).T
         tgt_output = np.roll(tgt_input, -1, 0).T
         tgt_output[:, -1]=0
-        
+
         tgt_padding_mask = np.array(target_weights)==0
 
         filenames = self.file_list
 
         self.data_list, self.label_list, self.file_list = [], [], []
         self.max_label_len = 0
-        
-        rs = {
+
+        return {
             'img': torch.FloatTensor(img).to(self.device),
             'tgt_input': torch.LongTensor(tgt_input).to(self.device),
             'tgt_output': torch.LongTensor(tgt_output).to(self.device),
-            'tgt_padding_mask':torch.BoolTensor(tgt_padding_mask).to(self.device),
-            'filenames': filenames
+            'tgt_padding_mask': torch.BoolTensor(tgt_padding_mask).to(self.device),
+            'filenames': filenames,
         }
-        
-        return rs
 
     def __len__(self):
         return len(self.data_list)
@@ -112,7 +110,7 @@ class DataGen(object):
     def clear(self):
         self.bucket_data = defaultdict(lambda: BucketData(self.device))
 
-    @background(max_prefetch=1) 
+    @background(max_prefetch=1)
     def gen(self, batch_size, last_batch=True):
         with open(self.annotation_path, 'r') as ann_file:
             lines = ann_file.readlines()
@@ -120,27 +118,23 @@ class DataGen(object):
             for l in lines:     
                 
                 img_path, lex = l.strip().split('\t')
-                
+
                 img_path = os.path.join(self.data_root, img_path)
-                
+
                 try:
                     img_bw, word = self.read_data(img_path, lex)
                 except IOError:
-                    print('ioread image:{}'.format(img_path))
-                    
+                    print(f'ioread image:{img_path}')
+
                 width = img_bw.shape[-1]
 
                 bs = self.bucket_data[width].append(img_bw, word, img_path)
                 if bs >= batch_size:
-                    b = self.bucket_data[width].flush_out()
-                    yield b
-
+                    yield self.bucket_data[width].flush_out()
         if last_batch: 
             for bucket in self.bucket_data.values():
                 if len(bucket) > 0:
-                    b = bucket.flush_out()
-                    yield b
-
+                    yield bucket.flush_out()
         self.clear()
 
     def read_data(self, img_path, lex):        

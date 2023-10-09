@@ -8,15 +8,12 @@ import tempfile
 from utils import download_weight
 
 def download_weights(uri, cached=None, md5=None, quiet=False):
-    if uri.startswith('http'):
-        return download_weight(uri, url=True)
-    return uri
+    return download_weight(uri, url=True) if uri.startswith('http') else uri
 
 def download_config(id):
-    url = 'https://raw.githubusercontent.com/pbcquoc/vietocr/master/config/{}'.format(id)
+    url = f'https://raw.githubusercontent.com/pbcquoc/vietocr/master/config/{id}'
     r = requests.get(url)
-    config = yaml.safe_load(r.text)
-    return config
+    return yaml.safe_load(r.text)
 
 def compute_accuracy(ground_truth, predictions, mode='full_sequence'):
     """
@@ -64,10 +61,7 @@ def compute_accuracy(ground_truth, predictions, mode='full_sequence'):
                     correct_count += 1
             avg_accuracy = correct_count / len(ground_truth)
         except ZeroDivisionError:
-            if not predictions:
-                avg_accuracy = 1
-            else:
-                avg_accuracy = 0
+            avg_accuracy = 1 if not predictions else 0
     else:
         raise NotImplementedError('Other accuracy compute mode has not been implemented')
 

@@ -49,14 +49,17 @@ class LanguageTransformer(nn.Module):
 
     def gen_nopeek_mask(self, length):
         mask = (torch.triu(torch.ones(length, length)) == 1).transpose(0, 1)
-        mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
+        mask = (
+            mask.float()
+            .masked_fill(mask == 0, float('-inf'))
+            .masked_fill(mask == 1, 0.0)
+        )
 
         return mask
     
     def forward_encoder(self, src):
         src = self.pos_enc(src*math.sqrt(self.d_model))
-        memory = self.transformer.encoder(src)
-        return memory
+        return self.transformer.encoder(src)
     
     def forward_decoder(self, tgt, memory):
         tgt_mask = self.gen_nopeek_mask(tgt.shape[0]).to(tgt.device)

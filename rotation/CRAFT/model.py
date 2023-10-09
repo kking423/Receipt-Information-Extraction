@@ -91,8 +91,7 @@ def denormalizeMeanVariance(in_img, mean=(0.485, 0.456, 0.406), variance=(0.229,
     img *= variance
     img += mean
     img *= 255.0
-    img = np.clip(img, 0, 255).astype(np.uint8)
-    return img
+    return np.clip(img, 0, 255).astype(np.uint8)
 
 
 def resize_aspect_ratio(img, square_size, interpolation, mag_ratio=1):
@@ -102,9 +101,7 @@ def resize_aspect_ratio(img, square_size, interpolation, mag_ratio=1):
     target_size = mag_ratio * max(height, width)
 
     # set original image size
-    if target_size > square_size:
-        target_size = square_size
-
+    target_size = min(target_size, square_size)
     ratio = target_size / max(height, width)
 
     target_h, target_w = int(height * ratio), int(width * ratio)
@@ -120,7 +117,7 @@ def resize_aspect_ratio(img, square_size, interpolation, mag_ratio=1):
     resized[0:target_h, 0:target_w, :] = proc
     target_h, target_w = target_h32, target_w32
 
-    size_heatmap = (int(target_w / 2), int(target_h / 2))
+    size_heatmap = target_w // 2, target_h // 2
 
     return resized, ratio, size_heatmap
 
@@ -145,11 +142,11 @@ def list_files(in_path):
         for file in filenames:
             filename, ext = os.path.splitext(file)
             ext = str.lower(ext)
-            if ext == '.jpg' or ext == '.jpeg' or ext == '.gif' or ext == '.png' or ext == '.pgm':
+            if ext in ['.jpg', '.jpeg', '.gif', '.png', '.pgm']:
                 img_files.append(os.path.join(dirpath, file))
             elif ext == '.bmp':
                 mask_files.append(os.path.join(dirpath, file))
-            elif ext == '.xml' or ext == '.gt' or ext == '.txt':
+            elif ext in ['.xml', '.gt', '.txt']:
                 gt_files.append(os.path.join(dirpath, file))
             elif ext == '.zip':
                 continue
@@ -197,8 +194,24 @@ def saveResult(img_file, img, boxes, dirname='./result/', verticals=None, texts=
             if texts is not None:
                 font = cv2.FONT_HERSHEY_SIMPLEX
                 font_scale = 0.5
-                cv2.putText(img, "{}".format(texts[i]), (poly[0][0] + 1, poly[0][1] + 1), font, font_scale, (0, 0, 0), thickness=1)
-                cv2.putText(img, "{}".format(texts[i]), tuple(poly[0]), font, font_scale, (0, 255, 255), thickness=1)
+                cv2.putText(
+                    img,
+                    f"{texts[i]}",
+                    (poly[0][0] + 1, poly[0][1] + 1),
+                    font,
+                    font_scale,
+                    (0, 0, 0),
+                    thickness=1,
+                )
+                cv2.putText(
+                    img,
+                    f"{texts[i]}",
+                    tuple(poly[0]),
+                    font,
+                    font_scale,
+                    (0, 255, 255),
+                    thickness=1,
+                )
 
     # Save result image
     cv2.imwrite(res_img_file, img)
@@ -248,8 +261,8 @@ def getDetBoxes_core(textmap, linkmap, text_threshold, link_threshold, low_text)
         niter = int(math.sqrt(size * min(w, h) / (w * h)) * 2)
         sx, ex, sy, ey = x - niter, x + w + niter + 1, y - niter, y + h + niter + 1
         # boundary check
-        if sx < 0: sx = 0
-        if sy < 0: sy = 0
+        sx = max(sx, 0)
+        sy = max(sy, 0)
         if ex >= img_w: ex = img_w
         if ey >= img_h: ey = img_h
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1 + niter, 1 + niter))

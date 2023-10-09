@@ -33,11 +33,13 @@ class OCRDataset(Dataset):
         self.lmdb_path =  lmdb_path
 
         if os.path.isdir(self.lmdb_path):
-            print('{} exists. Remove folder if you want to create new dataset'.format(self.lmdb_path))
+            print(
+                f'{self.lmdb_path} exists. Remove folder if you want to create new dataset'
+            )
             sys.stdout.flush()
         else:
             createDataset(self.lmdb_path, root_dir, annotation_path)
-        
+
         self.env = lmdb.open(
             self.lmdb_path,
             max_readers=8,
@@ -55,9 +57,13 @@ class OCRDataset(Dataset):
     def build_cluster_indices(self):
         self.cluster_indices = defaultdict(list)
 
-        pbar = tqdm(range(self.__len__()), 
-                desc='{} build cluster'.format(self.lmdb_path), 
-                ncols = 100, position=0, leave=True) 
+        pbar = tqdm(
+            range(self.__len__()),
+            desc=f'{self.lmdb_path} build cluster',
+            ncols=100,
+            position=0,
+            leave=True,
+        ) 
 
         for i in pbar:
             bucket = self.get_bucket(i)
@@ -107,12 +113,10 @@ class OCRDataset(Dataset):
 
     def __getitem__(self, idx):
         img, word, img_path = self.read_data(idx)
-        
-        img_path = os.path.join(self.root_dir, img_path)
-        
-        sample = {'img': img, 'word': word, 'img_path': img_path}
 
-        return sample
+        img_path = os.path.join(self.root_dir, img_path)
+
+        return {'img': img, 'word': word, 'img_path': img_path}
 
     def __len__(self):
         return self.nSamples
@@ -166,8 +170,8 @@ class Collator(object):
             filenames.append(sample['img_path'])
             label = sample['word']
             label_len = len(label)
-            
-            
+
+
             tgt = np.concatenate((
                 label,
                 np.zeros(max_label_len - label_len, dtype=np.int32)))
@@ -178,14 +182,14 @@ class Collator(object):
             target_weights.append(np.concatenate((
                 np.ones(one_mask_len, dtype=np.float32),
                 np.zeros(max_label_len - one_mask_len,dtype=np.float32))))
-            
+
         img = np.array(img, dtype=np.float32)
 
 
         tgt_input = np.array(tgt_input, dtype=np.int64).T
         tgt_output = np.roll(tgt_input, -1, 0).T
         tgt_output[:, -1]=0
-        
+
         # random mask token
         if self.masked_language_model:
             mask = np.random.random(size=tgt_input.shape) < 0.05
@@ -194,12 +198,10 @@ class Collator(object):
 
         tgt_padding_mask = np.array(target_weights)==0
 
-        rs = {
+        return {
             'img': torch.FloatTensor(img),
             'tgt_input': torch.LongTensor(tgt_input),
             'tgt_output': torch.LongTensor(tgt_output),
             'tgt_padding_mask': torch.BoolTensor(tgt_padding_mask),
-            'filenames': filenames
-        }   
-        
-        return rs
+            'filenames': filenames,
+        }

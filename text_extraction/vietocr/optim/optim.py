@@ -28,15 +28,13 @@ class ScheduledOptim():
         return (d_model ** -0.5) * min(n_steps ** (-0.5), n_steps * n_warmup_steps ** (-1.5))
 
     def state_dict(self):
-        optimizer_state_dict = {
-            'init_lr':self.init_lr,
-            'd_model':self.d_model,
-            'n_warmup_steps':self.n_warmup_steps,
-            'n_steps':self.n_steps,
-            '_optimizer':self._optimizer.state_dict(),
+        return {
+            'init_lr': self.init_lr,
+            'd_model': self.d_model,
+            'n_warmup_steps': self.n_warmup_steps,
+            'n_steps': self.n_steps,
+            '_optimizer': self._optimizer.state_dict(),
         }
-        
-        return optimizer_state_dict
     
     def load_state_dict(self, state_dict):
         self.init_lr = state_dict['init_lr']
